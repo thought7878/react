@@ -4,12 +4,6 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  *
- * @noformat
- * @nolint
- * @lightSyntaxTransform
- * @preventMunge
- * @oncall react_core
- *
  * @noflow
  * @nolint
  * @preventMunge
@@ -27787,12 +27781,6 @@ function requireCollections () {
 	 *
 	 * This source code is licensed under the MIT license found in the
 	 * LICENSE file in the root directory of this source tree.
- *
- * @noformat
- * @nolint
- * @lightSyntaxTransform
- * @preventMunge
- * @oncall react_core
 	 *
 	 */
 	const getKeysOfEnumerableProperties = object => {
@@ -28123,12 +28111,6 @@ function requireConvertAnsi () {
 	 *
 	 * This source code is licensed under the MIT license found in the
 	 * LICENSE file in the root directory of this source tree.
- *
- * @noformat
- * @nolint
- * @lightSyntaxTransform
- * @preventMunge
- * @oncall react_core
 	 */
 	const toHumanReadableAnsi = text =>
 	  text.replace((0, _ansiRegex.default)(), match => {
@@ -28342,12 +28324,6 @@ function requireEscapeHTML () {
 	 *
 	 * This source code is licensed under the MIT license found in the
 	 * LICENSE file in the root directory of this source tree.
- *
- * @noformat
- * @nolint
- * @lightSyntaxTransform
- * @preventMunge
- * @oncall react_core
 	 */
 	function escapeHTML$1(str) {
 	  return str.replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -28377,12 +28353,6 @@ function requireMarkup () {
 	 *
 	 * This source code is licensed under the MIT license found in the
 	 * LICENSE file in the root directory of this source tree.
- *
- * @noformat
- * @nolint
- * @lightSyntaxTransform
- * @preventMunge
- * @oncall react_core
 	 */
 	// Return empty string if keys is empty.
 	const printProps = (keys, props, config, indentation, depth, refs, printer) => {
@@ -28533,12 +28503,6 @@ function requireDOMElement () {
 	 *
 	 * This source code is licensed under the MIT license found in the
 	 * LICENSE file in the root directory of this source tree.
- *
- * @noformat
- * @nolint
- * @lightSyntaxTransform
- * @preventMunge
- * @oncall react_core
 	 */
 	const ELEMENT_NODE = 1;
 	const TEXT_NODE = 3;
@@ -28652,12 +28616,6 @@ function requireImmutable () {
 	 *
 	 * This source code is licensed under the MIT license found in the
 	 * LICENSE file in the root directory of this source tree.
- *
- * @noformat
- * @nolint
- * @lightSyntaxTransform
- * @preventMunge
- * @oncall react_core
 	 */
 	// SENTINEL constants are from https://github.com/facebook/immutable-js
 	const IS_ITERABLE_SENTINEL = '@@__IMMUTABLE_ITERABLE__@@';
@@ -29140,12 +29098,6 @@ function requireReactElement () {
 	 *
 	 * This source code is licensed under the MIT license found in the
 	 * LICENSE file in the root directory of this source tree.
- *
- * @noformat
- * @nolint
- * @lightSyntaxTransform
- * @preventMunge
- * @oncall react_core
 	 */
 	// Given element.props.children, or subtree during recursive traversal,
 	// return flattened array of children.
