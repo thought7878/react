@@ -12,7 +12,7 @@
  * @lightSyntaxTransform
  * @preventMunge
  * @oncall react_core
- * @generated SignedSource<<6b42b0b85104dc7db189f9f31ef1dfd1>>
+ * @generated SignedSource<<f40db3e318d1f6b86c566330c92e2620>>
  */
 
 'use strict';
@@ -31828,7 +31828,7 @@ class Environment {
         for (const error of errors.unwrapErr().details) {
             this.logger.logEvent(this.filename, {
                 kind: 'CompileError',
-                detail: error,
+                detail: formatDetailForLogging(error),
                 fnLoc: null,
             });
         }
@@ -32434,10 +32434,13 @@ function findDisjointMutableValues(fn) {
     }
     for (const [_, block] of fn.body.blocks) {
         for (const phi of block.phis) {
-            if (phi.place.identifier.mutableRange.start + 1 !==
+            const firstInstructionIdOfBlock = (_b = (_a = block.instructions.at(0)) === null || _a === void 0 ? void 0 : _a.id) !== null && _b !== void 0 ? _b : block.terminal.id;
+            const isPhiMutatedAfterCreation = phi.place.identifier.mutableRange.start + 1 !==
                 phi.place.identifier.mutableRange.end &&
-                phi.place.identifier.mutableRange.end >
-                    ((_b = (_a = block.instructions.at(0)) === null || _a === void 0 ? void 0 : _a.id) !== null && _b !== void 0 ? _b : block.terminal.id)) {
+                phi.place.identifier.mutableRange.end > firstInstructionIdOfBlock;
+            const isLoopCarriedReassignment = !isPhiMutatedAfterCreation &&
+                Iterable_some(phi.operands.values(), operand => operand.identifier.mutableRange.start >= firstInstructionIdOfBlock);
+            if (isPhiMutatedAfterCreation || isLoopCarriedReassignment) {
                 const operands = [phi.place.identifier];
                 const declaration = declarations.get(phi.place.identifier.declarationId);
                 if (declaration !== undefined) {
@@ -33068,6 +33071,9 @@ class SSABuilder {
         __classPrivateFieldGet(this, _SSABuilder_context, "f").add(oldPlace.identifier);
         return newPlace;
     }
+    unmarkUnknown(place) {
+        __classPrivateFieldGet(this, _SSABuilder_unknown, "f").delete(place.identifier);
+    }
     definePlace(oldPlace) {
         const oldId = oldPlace.identifier;
         if (__classPrivateFieldGet(this, _SSABuilder_unknown, "f").has(oldId)) {
@@ -33198,6 +33204,9 @@ function enterSSAImpl(func, builder, rootEntry) {
             if (instr.value.kind === 'FunctionExpression' ||
                 instr.value.kind === 'ObjectMethod') {
                 const loweredFunc = instr.value.loweredFunc.func;
+                for (const place of loweredFunc.context) {
+                    builder.unmarkUnknown(place);
+                }
                 const entry = loweredFunc.body.blocks.get(loweredFunc.body.entry);
                 CompilerError.invariant(entry.preds.size === 0, {
                     reason: 'Expected function expression entry block to have zero predecessors',
@@ -50109,7 +50118,9 @@ function runWithEnvironment(func, env) {
     pruneMaybeThrows(hir);
     log({ kind: 'hir', name: 'PruneMaybeThrows', value: hir });
     validateContextVariableLValues(hir);
+    log({ kind: 'debug', name: 'ValidateContextVariableLValues', value: 'ok' });
     validateUseMemo(hir);
+    log({ kind: 'debug', name: 'ValidateUseMemo', value: 'ok' });
     if (env.enableDropManualMemoization) {
         dropManualMemoization(hir);
         log({ kind: 'hir', name: 'DropManualMemoization', value: hir });
@@ -50123,12 +50134,15 @@ function runWithEnvironment(func, env) {
     mergeConsecutiveBlocks(hir);
     log({ kind: 'hir', name: 'MergeConsecutiveBlocks', value: hir });
     assertConsistentIdentifiers(hir);
+    log({ kind: 'debug', name: 'AssertConsistentIdentifiers', value: 'ok' });
     assertTerminalSuccessorsExist(hir);
+    log({ kind: 'debug', name: 'AssertTerminalSuccessorsExist', value: 'ok' });
     enterSSA(hir);
     log({ kind: 'hir', name: 'SSA', value: hir });
     eliminateRedundantPhi(hir);
     log({ kind: 'hir', name: 'EliminateRedundantPhi', value: hir });
     assertConsistentIdentifiers(hir);
+    log({ kind: 'debug', name: 'AssertConsistentIdentifiers', value: 'ok' });
     constantPropagation(hir);
     log({ kind: 'hir', name: 'ConstantPropagation', value: hir });
     inferTypes(hir);
@@ -50136,9 +50150,11 @@ function runWithEnvironment(func, env) {
     if (env.enableValidations) {
         if (env.config.validateHooksUsage) {
             validateHooksUsage(hir);
+            log({ kind: 'debug', name: 'ValidateHooksUsage', value: 'ok' });
         }
         if (env.config.validateNoCapitalizedCalls) {
             validateNoCapitalizedCalls(hir);
+            log({ kind: 'debug', name: 'ValidateNoCapitalizedCalls', value: 'ok' });
         }
     }
     optimizePropsMethodCalls(hir);
@@ -50161,29 +50177,54 @@ function runWithEnvironment(func, env) {
     log({ kind: 'hir', name: 'InferMutationAliasingRanges', value: hir });
     if (env.enableValidations) {
         validateLocalsNotReassignedAfterRender(hir);
+        log({
+            kind: 'debug',
+            name: 'ValidateLocalsNotReassignedAfterRender',
+            value: 'ok',
+        });
         if (env.config.assertValidMutableRanges) {
             assertValidMutableRanges(hir);
+            log({ kind: 'debug', name: 'AssertValidMutableRanges', value: 'ok' });
         }
         if (env.config.validateRefAccessDuringRender) {
             validateNoRefAccessInRender(hir);
+            log({ kind: 'debug', name: 'ValidateNoRefAccessInRender', value: 'ok' });
         }
         if (env.config.validateNoSetStateInRender) {
             validateNoSetStateInRender(hir);
+            log({ kind: 'debug', name: 'ValidateNoSetStateInRender', value: 'ok' });
         }
         if (env.config.validateNoDerivedComputationsInEffects_exp &&
             env.outputMode === 'lint') {
             env.logErrors(validateNoDerivedComputationsInEffects_exp(hir));
+            log({
+                kind: 'debug',
+                name: 'ValidateNoDerivedComputationsInEffects',
+                value: 'ok',
+            });
         }
         else if (env.config.validateNoDerivedComputationsInEffects) {
             validateNoDerivedComputationsInEffects(hir);
+            log({
+                kind: 'debug',
+                name: 'ValidateNoDerivedComputationsInEffects',
+                value: 'ok',
+            });
         }
         if (env.config.validateNoSetStateInEffects && env.outputMode === 'lint') {
             env.logErrors(validateNoSetStateInEffects(hir, env));
+            log({ kind: 'debug', name: 'ValidateNoSetStateInEffects', value: 'ok' });
         }
         if (env.config.validateNoJSXInTryStatements && env.outputMode === 'lint') {
             env.logErrors(validateNoJSXInTryStatement(hir));
+            log({ kind: 'debug', name: 'ValidateNoJSXInTryStatement', value: 'ok' });
         }
         validateNoFreezingKnownMutableFunctions(hir);
+        log({
+            kind: 'debug',
+            name: 'ValidateNoFreezingKnownMutableFunctions',
+            value: 'ok',
+        });
     }
     inferReactivePlaces(hir);
     log({ kind: 'hir', name: 'InferReactivePlaces', value: hir });
@@ -50191,6 +50232,7 @@ function runWithEnvironment(func, env) {
         if (env.config.validateExhaustiveMemoizationDependencies ||
             env.config.validateExhaustiveEffectDependencies) {
             validateExhaustiveDependencies(hir);
+            log({ kind: 'debug', name: 'ValidateExhaustiveDependencies', value: 'ok' });
         }
     }
     rewriteInstructionKindsBasedOnReassignment(hir);
@@ -50203,6 +50245,7 @@ function runWithEnvironment(func, env) {
         env.config.validateStaticComponents &&
         env.outputMode === 'lint') {
         env.logErrors(validateStaticComponents(hir));
+        log({ kind: 'debug', name: 'ValidateStaticComponents', value: 'ok' });
     }
     if (env.enableMemoization) {
         inferReactiveScopeVariables(hir);
@@ -50260,6 +50303,7 @@ function runWithEnvironment(func, env) {
         value: hir,
     });
     assertValidBlockNesting(hir);
+    log({ kind: 'debug', name: 'AssertValidBlockNesting', value: 'ok' });
     buildReactiveScopeTerminalsHIR(hir);
     log({
         kind: 'hir',
@@ -50267,6 +50311,7 @@ function runWithEnvironment(func, env) {
         value: hir,
     });
     assertValidBlockNesting(hir);
+    log({ kind: 'debug', name: 'AssertValidBlockNesting', value: 'ok' });
     flattenReactiveLoopsHIR(hir);
     log({
         kind: 'hir',
@@ -50280,7 +50325,9 @@ function runWithEnvironment(func, env) {
         value: hir,
     });
     assertTerminalSuccessorsExist(hir);
+    log({ kind: 'debug', name: 'AssertTerminalSuccessorsExist', value: 'ok' });
     assertTerminalPredsExist(hir);
+    log({ kind: 'debug', name: 'AssertTerminalPredsExist', value: 'ok' });
     propagateScopeDependenciesHIR(hir);
     log({
         kind: 'hir',
@@ -50294,6 +50341,7 @@ function runWithEnvironment(func, env) {
         value: reactiveFunction,
     });
     assertWellFormedBreakTargets(reactiveFunction);
+    log({ kind: 'debug', name: 'AssertWellFormedBreakTargets', value: 'ok' });
     pruneUnusedLabels(reactiveFunction);
     log({
         kind: 'reactive',
@@ -50301,6 +50349,11 @@ function runWithEnvironment(func, env) {
         value: reactiveFunction,
     });
     assertScopeInstructionsWithinScopes(reactiveFunction);
+    log({
+        kind: 'debug',
+        name: 'AssertScopeInstructionsWithinScopes',
+        value: 'ok',
+    });
     pruneNonEscapingScopes(reactiveFunction);
     log({
         kind: 'reactive',
@@ -50376,6 +50429,11 @@ function runWithEnvironment(func, env) {
     if (env.config.enablePreserveExistingMemoizationGuarantees ||
         env.config.validatePreserveExistingMemoizationGuarantees) {
         validatePreservedManualMemoization(reactiveFunction);
+        log({
+            kind: 'debug',
+            name: 'ValidatePreservedManualMemoization',
+            value: 'ok',
+        });
     }
     const ast = codegenFunction(reactiveFunction, {
         uniqueIdentifiers,
@@ -50616,6 +50674,38 @@ function isConfigError(err) {
     }
     return false;
 }
+function formatDetailForLogging(detail) {
+    var _a, _b, _c, _d;
+    if (detail instanceof CompilerDiagnostic) {
+        return {
+            category: detail.category,
+            reason: detail.reason,
+            description: (_a = detail.description) !== null && _a !== void 0 ? _a : null,
+            severity: detail.severity,
+            suggestions: (_b = detail.suggestions) !== null && _b !== void 0 ? _b : null,
+            details: detail.options.details.map(d => {
+                if (d.kind === 'error') {
+                    const loc = d.loc != null && typeof d.loc !== 'symbol' ? d.loc : null;
+                    return { kind: d.kind, loc, message: d.message };
+                }
+                else {
+                    return { kind: d.kind, loc: null, message: d.message };
+                }
+            }),
+        };
+    }
+    else {
+        const loc = detail.loc != null && typeof detail.loc !== 'symbol' ? detail.loc : null;
+        return {
+            category: detail.category,
+            reason: detail.reason,
+            description: (_c = detail.description) !== null && _c !== void 0 ? _c : null,
+            severity: detail.severity,
+            suggestions: (_d = detail.suggestions) !== null && _d !== void 0 ? _d : null,
+            loc,
+        };
+    }
+}
 function logError(err, context, fnLoc) {
     var _a, _b;
     if (context.opts.logger) {
@@ -50624,7 +50714,7 @@ function logError(err, context, fnLoc) {
                 context.opts.logger.logEvent(context.filename, {
                     kind: 'CompileError',
                     fnLoc,
-                    detail,
+                    detail: formatDetailForLogging(detail),
                 });
             }
         }
@@ -50881,7 +50971,7 @@ function processFn(fn, fnType, programContext, outputMode) {
         programContext.logEvent({
             kind: 'CompileSkip',
             fnLoc: (_d = fn.node.body.loc) !== null && _d !== void 0 ? _d : null,
-            reason: `Skipped due to '${directives.optOut.value}' directive.`,
+            reason: `Skipped due to '${directives.optOut.value.value}' directive.`,
             loc: (_e = directives.optOut.loc) !== null && _e !== void 0 ? _e : null,
         });
         return null;
@@ -52014,6 +52104,23 @@ function runReactCompiler({ sourceCode, filename, userOpts, }) {
 function assertExhaustive(_, errorMsg) {
     throw new Error(errorMsg);
 }
+function primaryLocation(detail) {
+    var _a, _b;
+    if (detail.details != null) {
+        const firstError = detail.details.find(d => d.kind === 'error');
+        if (firstError != null) {
+            return (_a = firstError.loc) !== null && _a !== void 0 ? _a : null;
+        }
+    }
+    return (_b = detail.loc) !== null && _b !== void 0 ? _b : null;
+}
+function printErrorMessage(detail) {
+    const buffer = [`[ReactCompilerError] ${detail.reason}`];
+    if (detail.description != null) {
+        buffer.push(`\n\n${detail.description}.`);
+    }
+    return buffer.join('');
+}
 function makeSuggestions(detail) {
     const suggest = [];
     if (Array.isArray(detail.suggestions)) {
@@ -52086,8 +52193,8 @@ function makeRule(rule) {
             if (event.kind === 'CompileError') {
                 const detail = event.detail;
                 if (detail.category === rule.category) {
-                    const loc = detail.primaryLocation();
-                    if (loc == null || typeof loc === 'symbol') {
+                    const loc = primaryLocation(detail);
+                    if (loc == null) {
                         continue;
                     }
                     if (hasFlowSuppression(result, loc, [
@@ -52097,11 +52204,9 @@ function makeRule(rule) {
                         continue;
                     }
                     context.report({
-                        message: detail.printErrorMessage(result.sourceCode, {
-                            eslint: true,
-                        }),
+                        message: printErrorMessage(detail),
                         loc,
-                        suggest: makeSuggestions(detail.options),
+                        suggest: makeSuggestions(detail),
                     });
                 }
             }
